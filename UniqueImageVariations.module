@@ -1,0 +1,193 @@
+<?php
+namespace ProcessWire;
+/**
+ *
+ * Unique Image Variations
+ *
+ * @author Robin Sallis
+ *
+ * ProcessWire 3.x
+ * Copyright (C) 2011 by Ryan Cramer
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ *
+ * http://www.processwire.com
+ * http://www.ryancramer.com
+ *
+ */
+
+class UniqueImageVariations extends WireData implements Module {
+
+	/**
+	 * Module information
+	 */
+	public static function getModuleInfo() {
+		return array(
+			'title' => "Unique Image Variations",
+			'version' => '0.1.0',
+			'author' => 'Robin Sallis',
+			'href' => 'https://github.com/Toutouwai/UniqueImageVariations',
+			'summary' => 'Ensures that all ImageSizer options affect image variation filenames.',
+			'icon' => 'picture-o',
+			'autoload' => true,
+		);
+	}
+
+	/**
+	 * Sharpening name to integer
+	 *
+	 * @var array
+	 */
+	protected $sharpening_values = array(
+		'none' => 0,
+		'soft' => 1,
+		'medium' => 2,
+		'strong' => 3,
+	);
+
+	/**
+	 * Ready
+	 */
+	public function ready() {
+		$this->addHookBefore('Pageimage::size', $this, 'addVariationSuffix');
+	}
+
+	/**
+	 * Add unique suffix to variation according to ImageSizer options
+	 *
+	 * @param HookEvent $event
+	 */
+	protected function addVariationSuffix(HookEvent $event) {
+
+		// ImageSizer options from $options argument
+		$options = $event->arguments(2);
+
+		// If $options argument is not an array (taken from core Pageimage::size)
+		if(!is_array($options)) {
+			if(is_string($options)) {
+				// optionally allow a string to be specified with crop direction, for shorter syntax
+				if(strpos($options, ',') !== false) $options = explode(',', $options); // 30,40
+				$options = array('cropping' => $options);
+			} else if(is_int($options)) {
+				// optionally allow an integer to be specified with quality, for shorter syntax
+				$options = array('quality' => $options);
+			} else if(is_bool($options)) {
+				// optionally allow a boolean to be specified with upscaling toggle on/off
+				$options = array('upscaling' => $options);
+			} else {
+				// unknown options type
+				$options = array();
+			}
+		}
+
+		// ImageSizer options from $config
+		$config_options = $this->config->imageSizerOptions;
+		if(!is_array($config_options)) $config_options = array();
+
+		// Default relevant ImageSizer options
+		$default_options = array(
+			'upscaling' => true,
+			'cropping' => true,
+			'interlace' => false,
+			'sharpening' => 'soft',
+			'quality' => 90,
+			'suffix' => array(),
+		);
+
+		// Merge the options
+		$merged_options = array_merge($default_options, $config_options, $options);
+
+		// Build identifier string
+		$identifier = '';
+		$identifier .= 'u' . (int) $merged_options['upscaling'];
+		$identifier .= 'c' . (int) $merged_options['cropping'];
+		$identifier .= 'i' . (int) $merged_options['interlace'];
+		if(isset($this->sharpening_values[$merged_options['sharpening']])) {
+			$sharpening = $this->sharpening_values[$merged_options['sharpening']];
+		} else {
+			// Invalid sharpening value
+			$sharpening = '_';
+		}
+		$identifier .= 's' . $sharpening;
+		if($merged_options['defaultGamma'] === -1) {
+			$gamma = 0;
+		} elseif($merged_options['defaultGamma'] >= 0.5 && $merged_options['defaultGamma'] <= 4.0) {
+			// Remove decimal point
+			$gamma = str_replace('.', '', $merged_options['defaultGamma']);
+		} else {
+			// Invalid gamma value
+			$gamma = '_';
+		}
+		$identifier .= 'g' . $gamma;
+		$identifier .= 'q' . (int) $merged_options['quality'];
+
+		$suffix = $merged_options['suffix'];
+
+		// Ensure suffix is an array
+		if(!is_array($suffix)) $suffix = explode(' ', $suffix);
+
+		// Add identifier to suffix
+		$suffix[] = $identifier;
+
+		// Set suffix back to $options
+		$options['suffix'] = $suffix;
+
+		// Set method argument
+		$event->arguments(2, $options);
+
+	}
+
+	/**
+	 * Given a variation image path/URL/Pageimage, get the ImageSizer options that were used to create it
+	 *
+	 * @param string|Pageimage $image
+	 * @return array
+	 * @throws WireException
+	 */
+	public function getVariationInfo($image) {
+		
+		$identifier = '';
+
+		// Get filename of image
+		if(is_string($image)) {
+			$filename = pathinfo($image, PATHINFO_FILENAME);
+		} elseif($image instanceof Pageimage) {
+			$filename = pathinfo($image->basename, PATHINFO_FILENAME);
+		} else {
+			throw new WireException($this->_('UniqueImageVariations::getVariationInfo requires a image filename or Pageimage as the first argument.'));
+		}
+
+		// Get pieces of filename
+		$name_pieces = explode('-', $filename);
+		// Find identifier string
+		foreach($name_pieces as $piece) {
+			if(preg_match('/^u(0|1)c(0|1)i(0|1)/', $piece)) $identifier = $piece;
+		}
+
+		// No identifier found
+		if(!$identifier) return array();
+
+		// Split identifier into individual values
+		$identifier_pieces = preg_split('/[a-z]+/', $identifier, null, PREG_SPLIT_NO_EMPTY);
+		// Deal with gamma value
+		$gamma = $identifier_pieces[4];
+		if($gamma === '0') {
+			$gamma = -1;
+		} elseif(strlen($gamma) > 1) {
+			$gamma = floatval($gamma = substr_replace($gamma, '.', 1, 0));
+		}
+		// Populate info array
+		$info = array(
+			'upscaling' => (bool) $identifier_pieces[0],
+			'cropping' => (bool) $identifier_pieces[1],
+			'interlace' => (bool) $identifier_pieces[2],
+			'sharpening' => array_search($identifier_pieces[3], $this->sharpening_values),
+			'defaultGamma' => $gamma,
+			'quality' => (int) $identifier_pieces[5],
+		);
+
+		// Return info
+		return $info;
+		
+	}
+
+}
