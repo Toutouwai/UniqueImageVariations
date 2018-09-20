@@ -20,7 +20,7 @@ This means that if you change any of these settings, either in `$config->imageSi
 
 ## Features
 
-The Unique Image Variations module ensures that any changes to ImageSizer options (or any options that are enabled in the module config) are reflected in the variation filename so new variations will always be generated and displayed on the front-end.
+The Unique Image Variations module ensures that any changes to ImageSizer options (or any options that are enabled in the module config, and any changes to the focus area made in Page Edit, are reflected in the variation filename so new variations will always be generated and displayed on the front-end.
 
 ## Installation
 
