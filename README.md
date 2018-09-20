@@ -24,7 +24,7 @@ The Unique Image Variations module ensures that any changes to ImageSizer option
 
 ## Installation
 
-[Install](http://modules.processwire.com/install-uninstall/) the JPG Only module.
+[Install](http://modules.processwire.com/install-uninstall/) the Unique Image Variations module.
 
 In the module config, set the ImageSizer options that you want to include in image variation filenames.
 
