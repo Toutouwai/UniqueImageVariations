@@ -15,7 +15,7 @@ namespace ProcessWire;
  *
  */
 
-class UniqueImageVariations extends WireData implements Module {
+class UniqueImageVariations extends WireData implements Module, ConfigurableModule {
 
 	/**
 	 * Module information
@@ -23,12 +23,13 @@ class UniqueImageVariations extends WireData implements Module {
 	public static function getModuleInfo() {
 		return array(
 			'title' => "Unique Image Variations",
-			'version' => '0.1.0',
+			'version' => '0.1.2',
 			'author' => 'Robin Sallis',
 			'href' => 'https://github.com/Toutouwai/UniqueImageVariations',
 			'summary' => 'Ensures that all ImageSizer options affect image variation filenames.',
 			'icon' => 'picture-o',
 			'autoload' => true,
+			'singular' => true,
 		);
 	}
 
@@ -45,6 +46,23 @@ class UniqueImageVariations extends WireData implements Module {
 	);
 
 	/**
+	 * Construct
+	 */
+	public function __construct() {
+		// Default config
+		$this->vn_options = array(
+			'upscaling',
+			'cropping',
+			'interlace',
+			'sharpening',
+			'quality',
+			'hidpiQuality',
+			'focus',
+			'focusData',
+		);
+	}
+
+	/**
 	 * Ready
 	 */
 	public function ready() {
@@ -57,6 +75,9 @@ class UniqueImageVariations extends WireData implements Module {
 	 * @param HookEvent $event
 	 */
 	protected function addVariationSuffix(HookEvent $event) {
+		
+		$pageimage = $event->object;
+		$filedata = $pageimage->filedata;
 
 		// ImageSizer options from $options argument
 		$options = $event->arguments(2);
@@ -90,39 +111,49 @@ class UniqueImageVariations extends WireData implements Module {
 			'interlace' => false,
 			'sharpening' => 'soft',
 			'quality' => 90,
+			'hidpiQuality' => 40,
+			'focus' => true,
 			'suffix' => array(),
 		);
 
 		// Merge the options
 		$merged_options = array_merge($default_options, $config_options, $options);
 
+		// Deal with cropping option as blank string
+		if(is_string($merged_options['cropping']) && !$merged_options['cropping']) $merged_options['cropping'] = false;
+
+		// Variation name options from module config
+		$vn_options = array_flip($this->vn_options);
+
 		// Build identifier string
 		$identifier = '';
-		$identifier .= 'u' . (int) $merged_options['upscaling'];
-		$identifier .= 'c' . (int) $merged_options['cropping'];
-		$identifier .= 'i' . (int) $merged_options['interlace'];
-		if(isset($this->sharpening_values[$merged_options['sharpening']])) {
-			$sharpening = $this->sharpening_values[$merged_options['sharpening']];
-		} else {
-			// Invalid sharpening value
-			$sharpening = '_';
+		if(isset($vn_options['upscaling'])) $identifier .= 'u' . (int) $merged_options['upscaling'];
+		if(isset($vn_options['cropping']) && $merged_options['cropping'] === false) $identifier .= 'c' . (int) $merged_options['cropping'];
+		if(isset($vn_options['interlace'])) $identifier .= 'i' . (int) $merged_options['interlace'];
+		if(isset($vn_options['sharpening'])) {
+			if(isset($this->sharpening_values[$merged_options['sharpening']])) {
+				$sharpening = $this->sharpening_values[$merged_options['sharpening']];
+			} else {
+				// Invalid sharpening value
+				$sharpening = '_';
+			}
+			$identifier .= 's' . $sharpening;
 		}
-		$identifier .= 's' . $sharpening;
-		if($merged_options['defaultGamma'] === -1) {
-			$gamma = 0;
-		} elseif($merged_options['defaultGamma'] >= 0.5 && $merged_options['defaultGamma'] <= 4.0) {
-			// Remove decimal point
-			$gamma = str_replace('.', '', $merged_options['defaultGamma']);
-		} else {
-			// Invalid gamma value
-			$gamma = '_';
-		}
-		$identifier .= 'g' . $gamma;
-		$identifier .= 'q' . (int) $merged_options['quality'];
+		if(isset($vn_options['quality'])) $identifier .= 'q' . (int) $merged_options['quality'];
+		if(isset($vn_options['hidpiQuality']) && !empty($merged_options['hidpi'])) $identifier .= 'hq' . (int) $merged_options['hidpiQuality'];
+		$focus = (int) $merged_options['focus'];
+		if(isset($vn_options['focus'])) $identifier .= 'f' . $focus;
 
-		$suffix = $merged_options['suffix'];
+		// Add focus data if present
+		if($focus && isset($vn_options['focusData']) && !empty($filedata['focus'])) {
+			$identifier .=
+				't' . $filedata['focus']['top'] * 10 .
+				'l' . $filedata['focus']['left'] * 10 .
+				'z' . $filedata['focus']['zoom'];
+		}
 
 		// Ensure suffix is an array
+		$suffix = $merged_options['suffix'];
 		if(!is_array($suffix)) $suffix = explode(' ', $suffix);
 
 		// Add identifier to suffix
@@ -137,57 +168,35 @@ class UniqueImageVariations extends WireData implements Module {
 	}
 
 	/**
-	 * Given a variation image path/URL/Pageimage, get the ImageSizer options that were used to create it
+	 * Config inputfields
 	 *
-	 * @param string|Pageimage $image
-	 * @return array
-	 * @throws WireException
+	 * @param InputfieldWrapper $inputfields
 	 */
-	public function getVariationInfo($image) {
-		
-		$identifier = '';
+	public function getModuleConfigInputfields($inputfields) {
 
-		// Get filename of image
-		if(is_string($image)) {
-			$filename = pathinfo($image, PATHINFO_FILENAME);
-		} elseif($image instanceof Pageimage) {
-			$filename = pathinfo($image->basename, PATHINFO_FILENAME);
-		} else {
-			throw new WireException($this->_('UniqueImageVariations::getVariationInfo requires a image filename or Pageimage as the first argument.'));
-		}
-
-		// Get pieces of filename
-		$name_pieces = explode('-', $filename);
-		// Find identifier string
-		foreach($name_pieces as $piece) {
-			if(preg_match('/^u(0|1)c(0|1)i(0|1)/', $piece)) $identifier = $piece;
-		}
-
-		// No identifier found
-		if(!$identifier) return array();
-
-		// Split identifier into individual values
-		$identifier_pieces = preg_split('/[a-z]+/', $identifier, null, PREG_SPLIT_NO_EMPTY);
-		// Deal with gamma value
-		$gamma = $identifier_pieces[4];
-		if($gamma === '0') {
-			$gamma = -1;
-		} elseif(strlen($gamma) > 1) {
-			$gamma = floatval($gamma = substr_replace($gamma, '.', 1, 0));
-		}
-		// Populate info array
-		$info = array(
-			'upscaling' => (bool) $identifier_pieces[0],
-			'cropping' => (bool) $identifier_pieces[1],
-			'interlace' => (bool) $identifier_pieces[2],
-			'sharpening' => array_search($identifier_pieces[3], $this->sharpening_values),
-			'defaultGamma' => $gamma,
-			'quality' => (int) $identifier_pieces[5],
+		$sizer_options = array(
+			'upscaling' => $this->_('Upscaling'),
+			'cropping' => $this->_('Cropping (when set to false or blank string)'),
+			'interlace' => $this->_('Interlace'),
+			'sharpening' => $this->_('Sharpening'),
+			'quality' => $this->_('Quality'),
+			'hidpiQuality' => $this->_('HiDPI quality'),
+			'focus' => $this->_('Use focus'),
+			'focusData' => $this->_('Focus data'),
 		);
 
-		// Return info
-		return $info;
-		
+		/* @var InputfieldCheckboxes $f */
+		$f = $this->modules->InputfieldCheckboxes;
+		$f_name = 'vn_options';
+		$f->name = $f_name;
+		$f->label = $this->_('ImageSizer options to include in variation names');
+		$f->description = $this->_('Warning: changing these settings will result in all image variations on the website being regenerated.');
+		foreach($sizer_options as $key => $value) {
+		    $f->addOption($key, $value);
+		}
+		$f->value = $this->$f_name;
+		$inputfields->add($f);
+
 	}
 
 }
