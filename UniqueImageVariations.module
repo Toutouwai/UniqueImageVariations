@@ -1,5 +1,5 @@
-<?php
-namespace ProcessWire;
+<?php namespace ProcessWire;
+
 /**
  *
  * Unique Image Variations
@@ -23,7 +23,7 @@ class UniqueImageVariations extends WireData implements Module, ConfigurableModu
 	public static function getModuleInfo() {
 		return array(
 			'title' => "Unique Image Variations",
-			'version' => '0.1.2',
+			'version' => '0.1.3',
 			'author' => 'Robin Sallis',
 			'href' => 'https://github.com/Toutouwai/UniqueImageVariations',
 			'summary' => 'Ensures that all ImageSizer options affect image variation filenames.',
@@ -75,6 +75,14 @@ class UniqueImageVariations extends WireData implements Module, ConfigurableModu
 	 * @param HookEvent $event
 	 */
 	protected function addVariationSuffix(HookEvent $event) {
+
+		$page = $this->wire()->page;
+		$width = $event->arguments(0);
+		$height = $event->arguments(1);
+		if($page && $page->template == 'admin') {
+			// Avoid needlessly generating extra admin thumbnails with focus enabled
+			if(($width === 260 && !$height) || $height === 260 && !$width) return;
+		}
 		
 		$pageimage = $event->object;
 		$filedata = $pageimage->filedata;
