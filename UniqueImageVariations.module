@@ -75,12 +75,12 @@ class UniqueImageVariations extends WireData implements Module, ConfigurableModu
 	 * @param HookEvent $event
 	 */
 	protected function addVariationSuffix(HookEvent $event) {
-
-		$page = $this->wire()->page;
+		
 		$width = $event->arguments(0);
 		$height = $event->arguments(1);
 		// Avoid needlessly generating extra admin thumbnails with focus enabled
-		// For some reason admin thumbnails are generated from front-end pages also so you can't limit by template
+		// When Tracy Debugger's Request Info panel is enabled thumbnails are generated on front-end pages also
+		// so you can't limit by template
 		if(($width === 260 && !$height) || $height === 260 && !$width) return;
 
 		$pageimage = $event->object;
