@@ -6,7 +6,7 @@ A module for ProcessWire CMS/CMF. Ensures that all ImageSizer options and focus 
 
 When using methods that produce image variations such as `Pageimage::size()`, ProcessWire includes some of the ImageSizer settings (height, width, cropping location, etc) in the variation filename. This is useful so that if you change these settings in your `size()` call a new variation is generated and you see this variation on the front-end.
 
-However, ProcessWire does not include several the other ImageSizer settings in the variation filename:
+However, ProcessWire does not include several of the other ImageSizer settings in the variation filename:
 * upscaling
 * cropping, when set to false or a blank string
 * interlace
@@ -34,4 +34,4 @@ Installing the module (and keeping one or more of the options selected in the mo
 
 Similarly, if you change the module config settings on an existing site then all image variations will be regenerated the next time they are requested.
 
-If you think you might want to change an ImageSizer option in the future (I'm thinking here primarily of options such as interlace that are typically set in `$config->imageSizerOptions`) and would *not* want that change to cause existing image variations to be regenerated then best to exclude that option in the module config after you first install the module.
+If you think you might want to change an ImageSizer option in the future (I'm thinking here primarily of options such as interlace that are typically set in `$config->imageSizerOptions`) and would *not* want that change to cause existing image variations to be regenerated then best to not include that option in the module config after you first install the module.
