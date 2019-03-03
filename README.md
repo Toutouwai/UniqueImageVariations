@@ -2,6 +2,8 @@
 
 A module for ProcessWire CMS/CMF. Ensures that all ImageSizer options and focus settings affect image variation filenames.
 
+![uiv](https://user-images.githubusercontent.com/1538852/53693222-4a5d5c80-3e02-11e9-8e1f-b96a3fb3eecf.png)
+
 ## Background
 
 When using methods that produce image variations such as `Pageimage::size()`, ProcessWire includes some of the ImageSizer settings (height, width, cropping location, etc) in the variation filename. This is useful so that if you change these settings in your `size()` call a new variation is generated and you see this variation on the front-end.
