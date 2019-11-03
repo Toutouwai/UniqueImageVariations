@@ -23,7 +23,7 @@ class UniqueImageVariations extends WireData implements Module, ConfigurableModu
 	public static function getModuleInfo() {
 		return array(
 			'title' => "Unique Image Variations",
-			'version' => '0.1.4',
+			'version' => '0.1.5',
 			'author' => 'Robin Sallis',
 			'href' => 'https://github.com/Toutouwai/UniqueImageVariations',
 			'summary' => 'Ensures that all ImageSizer options affect image variation filenames.',
@@ -70,24 +70,39 @@ class UniqueImageVariations extends WireData implements Module, ConfigurableModu
 	}
 
 	/**
-	 * Add unique suffix to variation according to ImageSizer options
+	 * Add unique suffix to variation
 	 *
 	 * @param HookEvent $event
 	 */
 	protected function addVariationSuffix(HookEvent $event) {
-		
+		/* @var Pageimage $pageimage */
+		$pageimage = $event->object;
 		$width = $event->arguments(0);
 		$height = $event->arguments(1);
+		// ImageSizer options
+		$options = $event->arguments(2);
+
 		// Avoid needlessly generating extra admin thumbnails with focus enabled
 		// When Tracy Debugger's Request Info panel is enabled thumbnails are generated on front-end pages also
 		// so you can't limit by template
 		if(($width === 260 && !$height) || $height === 260 && !$width) return;
 
-		$pageimage = $event->object;
-		$filedata = $pageimage->filedata;
+		// Set suffix to $options
+		$options['suffix'] = $this->getVariationSuffix($pageimage, $options);
 
-		// ImageSizer options from $options argument
-		$options = $event->arguments(2);
+		// Set method argument
+		$event->arguments(2, $options);
+	}
+
+	/**
+	 * Get unique suffix for variation according to ImageSizer options
+	 *
+	 * @param Pageimage $pageimage
+	 * @param array|string|int $options
+	 * @return array
+	 */
+	public function getVariationSuffix($pageimage, $options) {
+		$filedata = $pageimage->filedata;
 
 		// If $options argument is not an array (taken from core Pageimage::size)
 		if(!is_array($options)) {
@@ -166,12 +181,8 @@ class UniqueImageVariations extends WireData implements Module, ConfigurableModu
 		// Add identifier to suffix
 		$suffix[] = $identifier;
 
-		// Set suffix back to $options
-		$options['suffix'] = $suffix;
-
-		// Set method argument
-		$event->arguments(2, $options);
-
+		// Return suffix
+		return $suffix;
 	}
 
 	/**
