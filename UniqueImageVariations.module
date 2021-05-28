@@ -1,20 +1,5 @@
 <?php namespace ProcessWire;
 
-/**
- *
- * Unique Image Variations
- *
- * @author Robin Sallis
- *
- * ProcessWire 3.x
- * Copyright (C) 2011 by Ryan Cramer
- * Licensed under GNU/GPL v2, see LICENSE.TXT
- *
- * http://www.processwire.com
- * http://www.ryancramer.com
- *
- */
-
 class UniqueImageVariations extends WireData implements Module, ConfigurableModule {
 
 	/**
@@ -30,6 +15,7 @@ class UniqueImageVariations extends WireData implements Module, ConfigurableModu
 			'icon' => 'picture-o',
 			'autoload' => true,
 			'singular' => true,
+			'requires' => 'ProcessWire>=3.0.0, PHP>=5.4.0',
 		);
 	}
 
