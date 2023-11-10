@@ -1,5 +1,20 @@
 <?php namespace ProcessWire;
 
+/**
+ *
+ * Unique Image Variations
+ *
+ * @author Robin Sallis
+ *
+ * ProcessWire 3.x
+ * Copyright (C) 2011 by Ryan Cramer
+ * Licensed under GNU/GPL v2, see LICENSE.TXT
+ *
+ * http://www.processwire.com
+ * http://www.ryancramer.com
+ *
+ */
+
 class UniqueImageVariations extends WireData implements Module, ConfigurableModule {
 
 	/**
@@ -8,7 +23,7 @@ class UniqueImageVariations extends WireData implements Module, ConfigurableModu
 	public static function getModuleInfo() {
 		return array(
 			'title' => "Unique Image Variations",
-			'version' => '0.1.5',
+			'version' => '0.1.6',
 			'author' => 'Robin Sallis',
 			'href' => 'https://github.com/Toutouwai/UniqueImageVariations',
 			'summary' => 'Ensures that all ImageSizer options affect image variation filenames.',
@@ -164,8 +179,8 @@ class UniqueImageVariations extends WireData implements Module, ConfigurableModu
 		$suffix = $merged_options['suffix'];
 		if(!is_array($suffix)) $suffix = explode(' ', $suffix);
 
-		// Add identifier to suffix
-		$suffix[] = $identifier;
+		// Add identifier to suffix if it isn't already added, e.g. from repeated size() calls
+		if(!in_array($identifier, $suffix)) $suffix[] = $identifier;
 
 		// Return suffix
 		return $suffix;
